@@ -1,0 +1,215 @@
+---
+title: "<center><div id='id' class='mytitle'>What Makes An Effective Leader?</div></center>"
+subtitle: "<center><div class='mysubtitle'>Advanced Methods for Statistical Inference Assignment #2</div></center>"
+author: "<center><div class='mysubtitle'>Yun (Jessica) Yan</div></center>"
+date: "<center><div class='mysubtitle'>`r Sys.Date()`</div></center>"
+output:
+  html_document:
+    code_folding: "show"
+    df_print: paged
+    toc: true
+    css: style.css
+    includes: 
+      before_body: header1.html
+---
+<style> html { scroll-behavior: smooth;} </style>
+<div class="mycontent">
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,warning = FALSE, message = FALSE,error=FALSE,fig.align="center", fig.width=8, fig.height=6)
+```
+
+# Intro
+
+Why are some people seen as effective leaders and others are not? Are there any behaviors or characteristics that can help us quantify what an effective leader looks like? We use the data from a large survey of employees and their direct manager (i.e., each leader provided self-ratings and their direct subordinates provided rating about the leader -- this is reflected by the `Rater` variable). This data contains individual items and the scale score for those items. Our main goal is to use individual items, scale subscores, and/or scale scores to explain the *effect* variable.
+
+# Loading
+
+```{r, results='asis'}
+library(tidyverse)
+library(summarytools)
+st_css()
+load("C:/Users/Administrator/Downloads/teamPerc.RData")
+teamPerc <- sjlabelled::remove_all_labels(teamPerc)
+```
+
+# Bronze
+
+## i. Hypotheses
+
+After examining the variables within the given data, I would like to examine the linear relationship between the *effect* variable and the four scales. The regression model is:  $$effect = \beta_{0} + \beta_{1}forceful + \beta_{2}enabling + \beta_{3}strategic + \beta_{4}operational$$.
+
+My hypotheses are as follow:
+
+Null hypothesis 1: $β_{1} = 0$. There is no relationship between the *effect* variable and the *forceful* variable.
+
+Null hypothesis 2: $β_{2} = 0$. There is no relationship between the *effect* variable and the *enabling* variable.
+
+Null hypothesis 3: $β_{3} = 0$. There is no relationship between the *effect* variable and the *strategic* variable.
+
+Null hypothesis 4: $β_{4} = 0$. There is no relationship between the *effect* variable and the *operational* variable.
+
+## ii. Data Selection
+
+After observation, we found that in the *Rater* column, the number of **3** is quite more than the number of **1**, which suggests that **3** should represent the subordinate ratings while **1** represents the leader ratings. Since we are most interested in subordinate ratings, we want to get only the subordinate ratings in our data.
+
+```{r, results = 'asis'}
+teamPerc1 <- teamPerc %>% 
+  filter(Rater == 3) %>% 
+  select(effect,forceful,enabling,strategic,operational) %>% 
+  filter_at(vars(1:5),all_vars(!is.na(.))) 
+
+print(dfSummary(teamPerc1,graph.magnif = 0.7),
+      max.tbl.height = 350, method = "render",headings=FALSE)
+```
+
+## ii. Power Analysis
+
+We conduct an *a prior* power analysis to determine the sample size needed for the effect size. Since we want to be conservative, we firstly get the conventional small effect sizes, which is .02 (Detecting smaller effects require larger sample sizes.). 
+
+```{r}
+pwr::cohen.ES("f2", "small")
+pwr::pwr.f2.test(u = 4,  
+            f2 = .02,
+            sig.level = .05,
+            power = .8)
+```
+
+Based on the formula $n = v + u + 1$. Therefore we need $597 + 4 + 1 = 602$ records.
+
+```{r}
+pwr::pwr.f2.test(u = 4,  
+            f2 = (0.1)/(1-0.1),
+            sig.level = .05,
+            power = .8)
+```
+
+Also, based on our experience, we consider that the independent variables we chose can explain 10% of the variance of our dependent variable. Using $f^2 = \frac{R^2_{adjusted}}{1 - R^2_{adjusted}}$ as our effect size, we know that we need 113 records.
+
+We can see that there are **20419** observations in our data, which is far more than **602** and **113**. Therefore, it is safe for us to keep moving forward.
+
+## iii. Hypothesis Testing
+
+For each independent variable, we can see that the linear regression model has conducted a t-test on its coefficient, which can be used to test our hypotheses.
+
+
+```{r}
+lm <- lm(effect ~ forceful + enabling + strategic + operational, data = teamPerc1)
+summary(lm)
+```
+
+First of all, we discuss the **R-squared**. The Adjusted R-squared value is 0.2478, which means that 24.78% of the variability within effect can be accounted for the four scales.
+
+Then, we discuss **the F-test**. We used the F-test to compare the entire set of predictors in our model, to a model with just an intercept. The p-value being very small means that our model is very significant overall, in other words, there is a significant linear relationship between the dependent variable and the multiple independent variables.
+
+Furthermore, we discuss **the t-test**. As for the coefficients of the intercept as well as all four independent variables, we can see that the absolute t-value are all very big (bigger than 1.96) and the p-value are all very small. The result shows that all four t-test are significant under 0.001 significant level. That being said, we can reject all our hypotheses and there is a relationship existing between the *effect* variable and each variable among *forceful*, *enabling*, *strategic* and *operational*.
+
+## iv. Visualizations
+
+```{r}
+cols <- c("forceful"="orange","enabling"="red","strategic"="blue","operational"="yellow")
+p1 <- teamPerc1 %>% 
+  ggplot()+
+  geom_smooth(aes(x=forceful,y=effect,color="forceful"),method="lm",se=FALSE)+
+  geom_smooth(aes(x=enabling,y=effect,color="enabling"),method="lm",se=FALSE,alpha=0.5)+
+  geom_smooth(aes(x=strategic,y=effect,color="strategic"),method="lm",se=FALSE,alpha=0.5)+
+  geom_smooth(aes(x=operational,y=effect，color="operational"),method="lm",se=FALSE)+
+  ggthemes::theme_stata()+
+  theme(axis.title.x = element_blank(),)+
+  scale_colour_manual(name="var_name",values=cols)
+plotly::ggplotly(p1)
+```
+
+We plot the linear trend line between effect variable and each scale. We can see except for *forceful*, all the other predictors have a positive relationship with the *effect* variable. Besides, the coefficient of *enabling*, *strategic* and *operational* are very close to each other. Lastly, we also found that the x-axis range of the *operational* variable is narrower than others. More data and information is needed for further exploration (Maybe the min and max value is restricted when rating for this variable.).
+
+Interactive plot is employed for better user experience. You can hover onto the three lines that are really close to each other to see the specific value.
+
+
+# Silver
+
+We use **bootstrap resampling** method to examine how accurate our estimates might be.
+
+```{r}
+set.seed(1234)
+bootstrapping <- function(df) {
+  df <- df
+  sampledRows <- sample(1:nrow(df), nrow(df), replace = TRUE)
+  df <- df[sampledRows, ]
+  bsMod <- lm(effect ~ forceful + enabling + strategic + operational, data = df)
+  results <- broom::tidy(bsMod)
+  return(results)
+}
+
+bsRep <- replicate(1000, bootstrapping(teamPerc1), simplify = FALSE)
+
+bsCombined <- do.call("rbind", bsRep)
+
+for(j in c('forceful','enabling','strategic','operational')){
+  assign(paste0(substr(j,1,1),'1'),
+         ggplot(bsCombined[bsCombined$term == j, ], aes(statistic)) +
+           geom_histogram(fill = "darkslateblue") +
+           geom_vline(xintercept = quantile(bsCombined$statistic[bsCombined$term == j], .975),size=1) +
+           geom_vline(xintercept = quantile(bsCombined$statistic[bsCombined$term == j], .025),size=1) +
+           geom_vline(xintercept = summary(lm)$coefficients[j,"t value"],size=1) + 
+           geom_vline(xintercept = mean(bsCombined$statistic[bsCombined$term == j]),color="goldenrod1",size=1) +
+           theme_minimal()+
+           labs(title = paste0(j,' - t value'))+
+           theme(axis.title.x = element_blank(),
+                 axis.title.y = element_blank(),))
+  assign(paste0(substr(j,1,1),'2'),
+         ggplot(bsCombined[bsCombined$term == j, ], aes(estimate)) +
+           geom_histogram(fill = "darkslateblue") +
+           geom_vline(xintercept = quantile(bsCombined$estimate[bsCombined$term == j], .975),size=1) +
+           geom_vline(xintercept = quantile(bsCombined$estimate[bsCombined$term == j], .025),size=1) +
+           geom_vline(xintercept = summary(lm)$coefficients[j,"Estimate"],size=1) + 
+           geom_vline(xintercept = mean(bsCombined$estimate[bsCombined$term == j]),color="goldenrod1",size=1) +
+           theme_minimal()+
+           labs(title = paste0(j,' - estimate'))+
+           theme(axis.title.x = element_blank(),
+                 axis.title.y = element_blank(),))
+}
+
+gridExtra::grid.arrange(f1,f2,e1,e2,s1,s2,o1,o2,nrow=4,ncol=2)
+```
+
+As for the forceful variable, 95% of the intervals contain the true t-value between -5.5 and 0 and 95% of the intervals of its coefficient ranges from -0.3 to 0. There is some variance for the forceful variable and we need to keep in mind that there are chances that forceful is not a significant predictor for effect.
+
+As for the enabling, strategic and operational variables, 95% of the intervals of their t-values all far more than 1.96 while 95% of the intervals of their coefficient estimation are all positive. We should have confidence that they would be significant predictors for the effect variable.
+
+# Gold
+
+One of the assumptions about our regression model is that we don’t have heteroscedasticity, which means the residual standard error should be fixed. However, we need to conduct some tests to confirm it. Firstly, the residual plot shows a certain pattern instead of randomly distributed, and the red line in the graph is not fairly flat. Therefore, it is highly likely that our model has heteroscedasticity. 
+
+```{r}
+plot(lm,which=1)
+```
+
+Then, we conduct the bp-test to check it algorithimcally. According to the result, our p-value is very small, and thus we can reject the null hypothesis that the variance of the residuals is constant and heteroskedacity is present. 
+
+```{r}
+lmtest::bptest(lm)
+```
+
+Next, we use the `vcocHC` function to correct our variance-covariance matrix.
+
+```{r}
+lmtest::coeftest(lm, vcov = sandwich::vcovHC(lm))
+```
+
+After the correction, We see that the standard errors differ from the standard errors in our original linear regression model. The **forceful** variable is not statistically significant under the 0.05 significant level anymore. It also aligns with our finding in the resampling section.
+
+# Findings
+
+<style>
+div.blue { background-color:#e6f0ff; border-radius: 5px; padding: 20px;}
+</style>
+<div class = "blue">
+
+- If someone wants to be an effective leader, being enabling, strategic and oprational would be helpful to his / her subordinate ratings while being forceful might be harmful. He / She might want to avoid over-charging and being pushy.
+
+- The operational characteristic is most useful for improving the effectiveness of the leader since this variable has the highest coefficient in our linear regression model. In other words, the most urgent things for a leader who wants to be more effective is to be more action-oriented and improve the working efficiency.
+
+- Due to time limitation, my current analysis only focus on the scale level. We can dive deeper into the subscales and individual items next time. Also, comparison analysis can be conducted on the results of the leader and subordinate ratings.
+
+</div>
+<a href=#id class="float">back to top</a>
